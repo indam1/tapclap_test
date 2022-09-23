@@ -72,7 +72,7 @@ const LeeAlgorithm = {
         const tag = `${x}${y}`;
         this.current.push(tag);
     },
-    execute: function(start, canDelete) {
+    execute: function(start) {
         if (!start) {
             return null;
         }
@@ -81,13 +81,12 @@ const LeeAlgorithm = {
         while (this.current.length) {
             this.current.forEach((currentItem) => {
                 const { x, y } = this.parent.getCoordinatesFromTag(currentItem);
-                const variants = [
+                [
                     { x: x + 1, y },
                     { x: x - 1, y },
                     { x: x, y: y + 1},
                     { x: x, y: y - 1},
-                ];
-                variants.forEach((variant) => {
+                ].forEach((variant) => {
                     if (this.canAdd(variant.x, variant.y)) {
                         this.mark(variant.x, variant.y);
                     }
@@ -97,14 +96,8 @@ const LeeAlgorithm = {
             })
         }
         const marked = this.marked;
-        const hasAction = this.marked.length >= K;
-        if (hasAction && canDelete) {
-            this.marked.forEach(markedItem => {
-                this.parent.removeChildByTag(markedItem);
-            })
-        }
         this.cleanUp();
-        return hasAction ? marked : null;
+        return marked.length && marked.length >= K ? marked : null;
     }
 }
 
@@ -113,13 +106,12 @@ const HelloWorldLayer = cc.Layer.extend({
     algLee: LeeAlgorithm,
 
     hasChain: function() {
-        const parent = this;
         for (let y = M - 1; y >= 0; y--) {
             for (let x = 0; x < N; x++) {
                 const tag = `${x}${y}`;
-                const cube = parent.getChildByTag(tag).texture.url;
-                const deletedCubes = this.algLee.execute({ tag, cube }, false);
-                if (deletedCubes && deletedCubes.length) {
+                const cube = this.getChildByTag(tag).texture.url;
+                const deletedCubes = this.algLee.execute({ tag, cube });
+                if (deletedCubes) {
                     return true;
                 }
             }
@@ -131,7 +123,7 @@ const HelloWorldLayer = cc.Layer.extend({
         const y = parseInt(tag[1], 10);
         return { x, y };
     },
-    createSprite: function(x, y, color = null) {
+    createTile: function(x, y, color = null) {
         const size = cc.winSize;
         const cubeKeys = Object.keys(cubes);
         const randomIndex = Math.floor(Math.random() * cubeKeys.length);
@@ -146,86 +138,36 @@ const HelloWorldLayer = cc.Layer.extend({
         this.addChild(sprite);
         const tag = `${x}${y}`;
         sprite.setTag(tag);
-        cc.eventManager.addListener(this.touchListener(tag, cube), sprite);
+        cc.eventManager.addListener(this.tileTouchListener(tag, cube), sprite);
         return sprite;
     },
-    touchListener: function (tag, cube) {
-        const algLee = this.algLee;
-        const parent = this;
-
-        return {
-            event: cc.EventListener.TOUCH_ONE_BY_ONE,
-            onTouchBegan: function (touch, event) {
-                const target = event.getCurrentTarget();
-                const locationInNode = target.convertToNodeSpace(touch.getLocation());
-                const s = target.getContentSize();
-                const rect = cc.rect(0, 0, s.width, s.height);
-                if (!cc.rectContainsPoint(rect, locationInNode)) {
-                    return false;
+    moveDownTiles: function(deletedCubesList) {
+        Object.keys(deletedCubesList).forEach(column => {
+            let columnArray = deletedCubesList[column];
+            while (columnArray.length) {
+                const sortedColumnArray = columnArray.sort((rowA, rowB) => rowB - rowA);
+                const lowestEmptyRow = sortedColumnArray.shift(0);
+                for (let upperRow = lowestEmptyRow - 1; upperRow >= 0; upperRow--) {
+                    const oldTag = `${column}${upperRow}`;
+                    if (this.getChildByTag(oldTag)) {
+                        const newTag = `${column}${lowestEmptyRow}`;
+                        this.moveTile(oldTag, newTag);
+                        columnArray.push(upperRow);
+                        break;
+                    }
                 }
-
-                const deletedCubes = algLee.execute({ tag, cube }, true);
-                if (!deletedCubes || !deletedCubes.length) {
-                    return false;
-                }
-
-                const deletedCubesList = deletedCubes.reduce((result, coordinates) => {
-                    const { x, y } = parent.getCoordinatesFromTag(coordinates);
-                    if (!result[x]) {
-                        result[x] = [];
-                    }
-                    result[x].push(y);
-                    return result;
-                }, {});
-
-                const lastMax = Object.keys(deletedCubesList).reduce((result, column) => {
-                    let columnArray = deletedCubesList[column];
-                    while (columnArray.length) {
-                        const sortedColumnArray = columnArray.sort((rowA, rowB) => rowB - rowA);
-                        if (sortedColumnArray[sortedColumnArray.length - 1] === 0) {
-                            result[column] = sortedColumnArray.length - 1;
-                            break;
-                        }
-                        const lowestEmptyRow = sortedColumnArray.shift(0);
-                        for (let upperRow = lowestEmptyRow - 1; upperRow >= 0; upperRow--) {
-                            const oldTag = `${column}${upperRow}`;
-                            if (parent.getChildByTag(oldTag)) {
-                                const newTag = `${column}${lowestEmptyRow}`;
-                                parent.replace(oldTag, newTag);
-                                sortedColumnArray.push(upperRow);
-                                result[column] = upperRow;
-                                break;
-                            }
-                        }
-                        columnArray = sortedColumnArray;
-                    }
-                    return result;
-                }, {});
-
-                Object.keys(lastMax).forEach(column => {
-                    for (let i = 0; i <= lastMax[column]; i++) {
-                        parent.createSprite(column, i);
-                    }
-                })
-
-                if (!parent.hasChain()) {
-                    for (let i = 0; i < S; i++) {
-                        const firstTag = `${Math.floor(Math.random() * N)}${Math.floor(Math.random() * M)}`;
-                        const secondTag = `${Math.floor(Math.random() * N)}${Math.floor(Math.random() * M)}`;
-                        if (firstTag === secondTag) {
-                            continue;
-                        }
-                        parent.replaceTwo(firstTag, secondTag);
-                    }
-                    cc.log('hi');
-                    return false;
-                }
-
-                return true;
+                columnArray = sortedColumnArray;
             }
-        }
+        });
     },
-    replace: function (oldTag, newTag) {
+    fillTiles: function(deletedCubesList) {
+        Object.keys(deletedCubesList).forEach(column => {
+            for (let i = 0; i <= deletedCubesList[column].length - 1; i++) {
+                this.createTile(column, i);
+            }
+        })
+    },
+    moveTile: function (oldTag, newTag) {
         const oldPlace = this.getChildByTag(oldTag);
         const newPlace = this.getChildByTag(newTag);
         if (!oldPlace) {
@@ -238,9 +180,9 @@ const HelloWorldLayer = cc.Layer.extend({
         const color = oldPlace.texture.url;
         this.removeChildByTag(oldTag, true);
         const { x, y } = this.getCoordinatesFromTag(newTag);
-        this.createSprite(x, y, color);
+        this.createTile(x, y, color);
     },
-    replaceTwo: function(firstTag, secondTag) {
+    swapTiles: function(firstTag, secondTag) {
         const firstPlace = this.getChildByTag(firstTag);
         if (!firstPlace) {
             return;
@@ -255,9 +197,62 @@ const HelloWorldLayer = cc.Layer.extend({
         this.removeChildByTag(firstTag, true);
         this.removeChildByTag(secondTag, true);
         const { x: firstX, y: firstY } = this.getCoordinatesFromTag(firstTag);
-        this.createSprite(firstX, firstY, secondColor);
+        this.createTile(firstX, firstY, secondColor);
         const { x: secondX, y: secondY } = this.getCoordinatesFromTag(secondTag);
-        this.createSprite(secondX, secondY, firstColor);
+        this.createTile(secondX, secondY, firstColor);
+    },
+    tileTouchListener: function (tag, cube) {
+        const algLee = this.algLee;
+        const parent = this;
+
+        return {
+            event: cc.EventListener.TOUCH_ONE_BY_ONE,
+            onTouchBegan: function (touch, event) {
+                const target = event.getCurrentTarget();
+                const locationInNode = target.convertToNodeSpace(touch.getLocation());
+                const s = target.getContentSize();
+                const rect = cc.rect(0, 0, s.width, s.height);
+                if (!cc.rectContainsPoint(rect, locationInNode)) {
+                    return false;
+                }
+
+                const deletedCubes = algLee.execute({ tag, cube });
+                if (!deletedCubes) {
+                    return false;
+                }
+
+                deletedCubes.forEach((deletedCube) => {
+                    parent.removeChildByTag(deletedCube);
+                })
+
+                const deletedCubesList = deletedCubes.reduce((result, coordinates) => {
+                    const { x, y } = parent.getCoordinatesFromTag(coordinates);
+                    if (!result[x]) {
+                        result[x] = [];
+                    }
+                    result[x].push(y);
+                    return result;
+                }, {});
+
+                const newObj = JSON.parse(JSON.stringify(deletedCubesList));
+                parent.moveDownTiles(deletedCubesList);
+                parent.fillTiles(newObj);
+
+                if (!parent.hasChain()) {
+                    for (let i = 0; i < S; i++) {
+                        const firstTag = `${Math.floor(Math.random() * N)}${Math.floor(Math.random() * M)}`;
+                        const secondTag = `${Math.floor(Math.random() * N)}${Math.floor(Math.random() * M)}`;
+                        if (firstTag === secondTag) {
+                            continue;
+                        }
+                        parent.swapTiles(firstTag, secondTag);
+                    }
+                    return false;
+                }
+
+                return true;
+            }
+        }
     },
     ctor: function () {
         this._super();
@@ -265,7 +260,7 @@ const HelloWorldLayer = cc.Layer.extend({
 
         for (let y = M - 1; y >= 0; y--) {
             for (let x = 0; x < N; x++) {
-                this.createSprite(x, y);
+                this.createTile(x, y);
             }
         }
 
