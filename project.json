@@ -1,6 +1,6 @@
 {
     "project_type": "javascript",
-
+    "type": "module",
     "debugMode" : 1,
     "showFPS" : true,
     "frameRate" : 60,

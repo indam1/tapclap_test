@@ -10,7 +10,9 @@ const res = {
         type: "font",
         name: "Marvin",
         srcs: ['res/Marvin.ttf']
-    }
+    },
+    Progress_png: 'res/Progress.png',
+    Bar_png: 'res/Bar.png'
 };
 
 const g_resources = [];
