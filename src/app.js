@@ -1,27 +1,3 @@
-/****************************************************************************
- Copyright (c) 2017-2018 Xiamen Yaji Software Co., Ltd.
-
- http://www.cocos2d-x.org
-
- Permission is hereby granted, free of charge, to any person obtaining a copy
- of this software and associated documentation files (the "Software"), to deal
- in the Software without restriction, including without limitation the rights
- to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- copies of the Software, and to permit persons to whom the Software is
- furnished to do so, subject to the following conditions:
-
- The above copyright notice and this permission notice shall be included in
- all copies or substantial portions of the Software.
-
- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- THE SOFTWARE.
- ****************************************************************************/
-
 const N = 4;
 const M = 4;
 const K = 2;
@@ -34,7 +10,7 @@ const yAxes = {};
 for (let y = 0; y < M; y++) {
     yAxes[y] = M;
 }
-const cubes = {
+const tileColors = {
     blue: res.Blue_png,
     green: res.Green_png,
     red: res.Red_png,
@@ -62,11 +38,11 @@ const LeeAlgorithm = {
     },
     canAdd: function(x, y) {
         const tag = `${x}${y}`;
-        const cube = this.parent.getChildByTag(tag)
-        return cube
+        const tile = this.parent.getChildByTag(tag)
+        return tile
             && !this.marked.includes(tag)
             && !this.current.includes(tag)
-            && this.start.cube === cube.texture.url;
+            && this.start.colorImg === tile.texture.url;
     },
     mark: function(x, y) {
         const tag = `${x}${y}`;
@@ -104,14 +80,15 @@ const LeeAlgorithm = {
 const HelloWorldLayer = cc.Layer.extend({
     sprite: null,
     algLee: LeeAlgorithm,
+    size: cc.winSize,
 
     hasChain: function() {
         for (let y = M - 1; y >= 0; y--) {
             for (let x = 0; x < N; x++) {
                 const tag = `${x}${y}`;
-                const cube = this.getChildByTag(tag).texture.url;
-                const deletedCubes = this.algLee.execute({ tag, cube });
-                if (deletedCubes) {
+                const colorImg = this.getChildByTag(tag).texture.url;
+                const tilesToDelete = this.algLee.execute({ tag, colorImg });
+                if (tilesToDelete) {
                     return true;
                 }
             }
@@ -124,26 +101,25 @@ const HelloWorldLayer = cc.Layer.extend({
         return { x, y };
     },
     createTile: function(x, y, color = null) {
-        const size = cc.winSize;
-        const cubeKeys = Object.keys(cubes);
-        const randomIndex = Math.floor(Math.random() * cubeKeys.length);
-        const cube = color ?? cubes[cubeKeys[randomIndex]];
-        const sprite = new cc.Sprite(cube);
+        const tileKeys = Object.keys(tileColors);
+        const randomIndex = Math.floor(Math.random() * tileKeys.length);
+        const colorImg = color ?? tileColors[tileKeys[randomIndex]];
+        const sprite = new cc.Sprite(colorImg);
         sprite.attr({
-            x: xPosition(size.width, x),
-            y: yPosition(size.height, y),
+            x: xPosition(this.size.width, x),
+            y: yPosition(this.size.height, y),
             scale: 0.3,
         });
         sprite.setLocalZOrder(100000 - y);
         this.addChild(sprite);
         const tag = `${x}${y}`;
         sprite.setTag(tag);
-        cc.eventManager.addListener(this.tileTouchListener(tag, cube), sprite);
+        cc.eventManager.addListener(this.tileTouchListener(tag, colorImg), sprite);
         return sprite;
     },
-    moveDownTiles: function(deletedCubesList) {
-        Object.keys(deletedCubesList).forEach(column => {
-            let columnArray = deletedCubesList[column];
+    moveDownTiles: function(deletedTilesList) {
+        Object.keys(deletedTilesList).forEach(column => {
+            let columnArray = deletedTilesList[column];
             while (columnArray.length) {
                 const sortedColumnArray = columnArray.sort((rowA, rowB) => rowB - rowA);
                 const lowestEmptyRow = sortedColumnArray.shift(0);
@@ -160,9 +136,9 @@ const HelloWorldLayer = cc.Layer.extend({
             }
         });
     },
-    fillTiles: function(deletedCubesList) {
-        Object.keys(deletedCubesList).forEach(column => {
-            for (let i = 0; i <= deletedCubesList[column].length - 1; i++) {
+    fillTiles: function(deletedTilesList) {
+        Object.keys(deletedTilesList).forEach(column => {
+            for (let i = 0; i <= deletedTilesList[column].length - 1; i++) {
                 this.createTile(column, i);
             }
         })
@@ -201,8 +177,7 @@ const HelloWorldLayer = cc.Layer.extend({
         const { x: secondX, y: secondY } = this.getCoordinatesFromTag(secondTag);
         this.createTile(secondX, secondY, firstColor);
     },
-    tileTouchListener: function (tag, cube) {
-        const algLee = this.algLee;
+    tileTouchListener: function (tag, colorImg) {
         const parent = this;
 
         return {
@@ -216,16 +191,20 @@ const HelloWorldLayer = cc.Layer.extend({
                     return false;
                 }
 
-                const deletedCubes = algLee.execute({ tag, cube });
-                if (!deletedCubes) {
+                const tilesToDelete = parent.algLee.execute({ tag, colorImg });
+                if (!tilesToDelete) {
                     return false;
                 }
 
-                deletedCubes.forEach((deletedCube) => {
-                    parent.removeChildByTag(deletedCube);
+                const movesElem = parent.getChildByName('moves');
+                const pointsElem = parent.getChildByName('points');
+                movesElem.setString(parseInt(movesElem.getString(), 10) - 1);
+                pointsElem.setString(parseInt(pointsElem.getString(), 10) + tilesToDelete.length);
+                tilesToDelete.forEach((deletedTile) => {
+                    parent.removeChildByTag(deletedTile);
                 })
 
-                const deletedCubesList = deletedCubes.reduce((result, coordinates) => {
+                const deletedTilesList = tilesToDelete.reduce((result, coordinates) => {
                     const { x, y } = parent.getCoordinatesFromTag(coordinates);
                     if (!result[x]) {
                         result[x] = [];
@@ -234,8 +213,8 @@ const HelloWorldLayer = cc.Layer.extend({
                     return result;
                 }, {});
 
-                const newObj = JSON.parse(JSON.stringify(deletedCubesList));
-                parent.moveDownTiles(deletedCubesList);
+                const newObj = JSON.parse(JSON.stringify(deletedTilesList));
+                parent.moveDownTiles(deletedTilesList);
                 parent.fillTiles(newObj);
 
                 if (!parent.hasChain()) {
@@ -249,21 +228,51 @@ const HelloWorldLayer = cc.Layer.extend({
                     }
                     return false;
                 }
-
                 return true;
             }
         }
     },
+    addText: function (string, name, fontSize, attr) {
+        const text = new cc.LabelTTF();
+        text.setString(string);
+        text.setName(name);
+        text.setFontSize(fontSize);
+        text.setFontName('Marvin');
+        text.attr(attr);
+        this.addChild(text);
+    },
     ctor: function () {
         this._super();
         this.algLee.parent = this;
+        const sprite = new cc.Sprite(res.PanelScore_png);
+        sprite.attr({
+            x: 200,
+            y: 200,
+            scale: 0.3,
+        });
+        this.addChild(sprite);
+        this.addText('50', 'moves', 256, {
+            x: 200,
+            y: 255,
+            scale: 0.3,
+        })
+        this.addText('очки:', 'pointsLabel', 82, {
+            x: 200,
+            y: 145,
+            scale: 0.3,
+        })
+        this.addText('0', 'points', 164, {
+            x: 200,
+            y: 105,
+            scale: 0.3,
+        })
+
 
         for (let y = M - 1; y >= 0; y--) {
             for (let x = 0; x < N; x++) {
                 this.createTile(x, y);
             }
         }
-
         return true;
     }
 });
