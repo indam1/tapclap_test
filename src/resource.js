@@ -1,21 +1,28 @@
+import Blue from '../res/tiles/Blue.png';
+import Green from '../res/tiles/Green.png';
+import Purple from '../res/tiles/Purple.png';
+import Red from '../res/tiles/Red.png';
+import Yellow from '../res/tiles/Yellow.png';
+import Bar from '../res/Bar.png';
+import PanelScore from '../res/PanelScore.png';
+import Progress from '../res/Progress.png';
+
 const res = {
-    HelloWorld_png : 'res/HelloWorld.png',
-    Blue_png : 'res/Blue.png',
-    Green_png : 'res/Green.png',
-    Purple_png : 'res/Purple.png',
-    Red_png : 'res/Red.png',
-    Yellow_png : 'res/Yellow.png',
-    PanelScore_png: 'res/PanelScore.png',
+    Blue_png: Blue,
+    Green_png: Green,
+    Purple_png: Purple,
+    Red_png: Red,
+    Yellow_png: Yellow,
+    Bar_png: Bar,
+    PanelScore_png: PanelScore,
+    Progress_png: Progress,
     Marvin_font: {
-        type: "font",
-        name: "Marvin",
-        srcs: ['res/Marvin.ttf']
+        type: 'font',
+        name: 'Marvin',
+        srcs: ['res/fonts/Marvin.ttf'],
     },
-    Progress_png: 'res/Progress.png',
-    Bar_png: 'res/Bar.png'
 };
 
-const g_resources = [];
-for (let i in res) {
-    g_resources.push(res[i]);
-}
+const gResources = Object.keys(res).map((key) => res[key]);
+
+export { res, gResources };

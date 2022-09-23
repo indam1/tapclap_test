@@ -1,17 +1,18 @@
-const N = 4;
-const M = 4;
-const K = 2;
-const S = 1000;
+import { res } from '@/resource';
+import {
+    N, M, K, S,
+} from './globalVariables';
+
 const xAxes = {};
-for (let x = 0; x < N; x++) {
+for (let x = 0; x < N; x += 1) {
     xAxes[x] = N;
 }
 const yAxes = {};
-for (let y = 0; y < M; y++) {
+for (let y = 0; y < M; y += 1) {
     yAxes[y] = M;
 }
 
-export const GameLayer = cc.Layer.extend({
+const GameLayer = cc.Layer.extend({
     sprite: null,
     algLee: {
         marked: [],
@@ -23,19 +24,19 @@ export const GameLayer = cc.Layer.extend({
             this.current = [];
             this.start = null;
         },
-        canAdd: function(x, y) {
+        canAdd(x, y) {
             const tag = `${x}${y}`;
-            const tile = this.parent.getChildByTag(tag)
+            const tile = this.parent.getChildByTag(tag);
             return tile
                 && !this.marked.includes(tag)
                 && !this.current.includes(tag)
                 && this.start.colorImg === tile.texture.url;
         },
-        mark: function(x, y) {
+        mark(x, y) {
             const tag = `${x}${y}`;
             this.current.push(tag);
         },
-        execute: function(start) {
+        execute(start) {
             if (!start) {
                 return null;
             }
@@ -47,23 +48,24 @@ export const GameLayer = cc.Layer.extend({
                     [
                         { x: x + 1, y },
                         { x: x - 1, y },
-                        { x: x, y: y + 1},
-                        { x: x, y: y - 1},
+                        { x, y: y + 1 },
+                        { x, y: y - 1 },
                     ].forEach((variant) => {
                         if (this.canAdd(variant.x, variant.y)) {
                             this.mark(variant.x, variant.y);
                         }
-                    })
+                    });
                     this.marked.push(currentItem);
                     this.current = this.current.filter((currentBufferItem) => currentBufferItem !== currentItem);
-                })
+                });
             }
-            const marked = this.marked;
+            const { marked } = this;
             this.cleanUp();
             return marked.length && marked.length >= K ? marked : null;
-        }
+        },
     },
     size: cc.winSize,
+    /* eslint-disable no-undef */
     tileColors: {
         blue: res.Blue_png,
         green: res.Green_png,
@@ -71,15 +73,16 @@ export const GameLayer = cc.Layer.extend({
         purple: res.Purple_png,
         yellow: res.Yellow_png,
     },
+    /* eslint-enable no-undef */
     xTilePosition(width, index) {
         return width / 4 + index * 51;
     },
     yTilePosition(height, index) {
         return height / 1.25 - index * 51;
     },
-    hasChain: function() {
-        for (let y = M - 1; y >= 0; y--) {
-            for (let x = 0; x < N; x++) {
+    hasChain() {
+        for (let y = M - 1; y >= 0; y -= 1) {
+            for (let x = 0; x < N; x += 1) {
                 const tag = `${x}${y}`;
                 const colorImg = this.getChildByTag(tag).texture.url;
                 const tilesToDelete = this.algLee.execute({ tag, colorImg });
@@ -90,12 +93,12 @@ export const GameLayer = cc.Layer.extend({
         }
         return false;
     },
-    getCoordinatesFromTag: function(tag) {
+    getCoordinatesFromTag(tag) {
         const x = parseInt(tag[0], 10);
         const y = parseInt(tag[1], 10);
         return { x, y };
     },
-    createTile: function(x, y, color = null) {
+    createTile(x, y, color = null) {
         const tileKeys = Object.keys(this.tileColors);
         const randomIndex = Math.floor(Math.random() * tileKeys.length);
         const colorImg = color ?? this.tileColors[tileKeys[randomIndex]];
@@ -110,15 +113,14 @@ export const GameLayer = cc.Layer.extend({
         const tag = `${x}${y}`;
         sprite.setTag(tag);
         cc.eventManager.addListener(this.tileTouchListener(tag, colorImg), sprite);
-        return sprite;
     },
-    moveDownTiles: function(deletedTilesList) {
-        Object.keys(deletedTilesList).forEach(column => {
+    moveDownTiles(deletedTilesList) {
+        Object.keys(deletedTilesList).forEach((column) => {
             let columnArray = deletedTilesList[column];
             while (columnArray.length) {
                 const sortedColumnArray = columnArray.sort((rowA, rowB) => rowB - rowA);
                 const lowestEmptyRow = sortedColumnArray.shift(0);
-                for (let upperRow = lowestEmptyRow - 1; upperRow >= 0; upperRow--) {
+                for (let upperRow = lowestEmptyRow - 1; upperRow >= 0; upperRow -= 1) {
                     const oldTag = `${column}${upperRow}`;
                     if (this.getChildByTag(oldTag)) {
                         const newTag = `${column}${lowestEmptyRow}`;
@@ -131,14 +133,14 @@ export const GameLayer = cc.Layer.extend({
             }
         });
     },
-    fillTiles: function(deletedTilesList) {
-        Object.keys(deletedTilesList).forEach(column => {
-            for (let i = 0; i <= deletedTilesList[column].length - 1; i++) {
+    fillTiles(deletedTilesList) {
+        Object.keys(deletedTilesList).forEach((column) => {
+            for (let i = 0; i <= deletedTilesList[column].length - 1; i += 1) {
                 this.createTile(column, i);
             }
-        })
+        });
     },
-    moveTile: function (oldTag, newTag) {
+    moveTile(oldTag, newTag) {
         const oldPlace = this.getChildByTag(oldTag);
         const newPlace = this.getChildByTag(newTag);
         if (!oldPlace) {
@@ -153,7 +155,7 @@ export const GameLayer = cc.Layer.extend({
         const { x, y } = this.getCoordinatesFromTag(newTag);
         this.createTile(x, y, color);
     },
-    swapTiles: function(firstTag, secondTag) {
+    swapTiles(firstTag, secondTag) {
         const firstPlace = this.getChildByTag(firstTag);
         if (!firstPlace) {
             return;
@@ -172,12 +174,12 @@ export const GameLayer = cc.Layer.extend({
         const { x: secondX, y: secondY } = this.getCoordinatesFromTag(secondTag);
         this.createTile(secondX, secondY, firstColor);
     },
-    tileTouchListener: function (tag, colorImg) {
+    tileTouchListener(tag, colorImg) {
         const parent = this;
 
         return {
             event: cc.EventListener.TOUCH_ONE_BY_ONE,
-            onTouchBegan: function (touch, event) {
+            onTouchBegan(touch, event) {
                 const target = event.getCurrentTarget();
                 const locationInNode = target.convertToNodeSpace(touch.getLocation());
                 const s = target.getContentSize();
@@ -191,23 +193,23 @@ export const GameLayer = cc.Layer.extend({
                     return false;
                 }
 
-                const movesElem = parent.getChildByName('moves');
-                const pointsElem = parent.getChildByName('points');
+                const movesElem = parent.uiLayer.getChildByName('moves');
+                const pointsElem = parent.uiLayer.getChildByName('points');
                 const points = parseInt(pointsElem.getString(), 10);
-                const progressElem = parent.getChildByName('progress');
+                const progressElem = parent.uiLayer.getChildByName('progress');
 
                 movesElem.setString(parseInt(movesElem.getString(), 10) - 1);
                 pointsElem.setString(points + tilesToDelete.length);
                 progressElem.attr({
-                    x: 200 + progressElem.width * (points * 0.001) / 2,
+                    x: 200 + (progressElem.width * (points * 0.001)) / 2,
                     y: 600,
                     scaleY: 0.3,
                     scaleX: 0.3 + points * 0.001,
-                })
+                });
 
                 tilesToDelete.forEach((deletedTile) => {
                     parent.removeChildByTag(deletedTile);
-                })
+                });
 
                 const deletedTilesList = tilesToDelete.reduce((result, coordinates) => {
                     const { x, y } = parent.getCoordinatesFromTag(coordinates);
@@ -223,29 +225,31 @@ export const GameLayer = cc.Layer.extend({
                 parent.fillTiles(newObj);
 
                 if (!parent.hasChain()) {
-                    for (let i = 0; i < S; i++) {
+                    for (let i = 0; i < S; i += 1) {
                         const firstTag = `${Math.floor(Math.random() * N)}${Math.floor(Math.random() * M)}`;
                         const secondTag = `${Math.floor(Math.random() * N)}${Math.floor(Math.random() * M)}`;
-                        if (firstTag === secondTag) {
-                            continue;
+                        if (firstTag !== secondTag) {
+                            parent.swapTiles(firstTag, secondTag);
                         }
-                        parent.swapTiles(firstTag, secondTag);
                     }
                     return false;
                 }
                 return true;
-            }
-        }
+            },
+        };
     },
-    ctor: function () {
+    ctor() {
         this._super();
+        this.setName('game');
         this.algLee.parent = this;
-        this.uiLayer = this.get
-        for (let y = M - 1; y >= 0; y--) {
-            for (let x = 0; x < N; x++) {
+        this.uiLayer = this.getParent().getChildByName('ui');
+        for (let y = M - 1; y >= 0; y -= 1) {
+            for (let x = 0; x < N; x += 1) {
                 this.createTile(x, y);
             }
         }
         return true;
-    }
+    },
 });
+
+export default GameLayer;
