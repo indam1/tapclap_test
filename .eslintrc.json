@@ -32,6 +32,7 @@
     }
   },
   "rules": {
+    "new-cap": "off",
     "indent": ["error", 4],
     "no-param-reassign": "off",
     "max-len": ["error", { "code": 120 }],

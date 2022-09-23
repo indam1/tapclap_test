@@ -1,11 +1,11 @@
-import Blue from '../res/tiles/Blue.png';
-import Green from '../res/tiles/Green.png';
-import Purple from '../res/tiles/Purple.png';
-import Red from '../res/tiles/Red.png';
-import Yellow from '../res/tiles/Yellow.png';
-import Bar from '../res/Bar.png';
-import PanelScore from '../res/PanelScore.png';
-import Progress from '../res/Progress.png';
+import Blue from '../res/tileImages/Blue.png';
+import Green from '../res/tileImages/Green.png';
+import Purple from '../res/tileImages/Purple.png';
+import Red from '../res/tileImages/Red.png';
+import Yellow from '../res/tileImages/Yellow.png';
+import Bar from '../res/uiImages/Bar.png';
+import PanelScore from '../res/uiImages/PanelScore.png';
+import Progress from '../res/uiImages/Progress.png';
 
 const res = {
     Blue_png: Blue,

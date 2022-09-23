@@ -1,20 +1,21 @@
 import { res } from '@/resource';
 import {
     N, M, K, S,
-} from './globalVariables';
+} from '../globalVariables';
 
-const xAxes = {};
-for (let x = 0; x < N; x += 1) {
-    xAxes[x] = N;
-}
-const yAxes = {};
-for (let y = 0; y < M; y += 1) {
-    yAxes[y] = M;
-}
+const tileColors = {
+    blue: res.Blue_png,
+    green: res.Green_png,
+    red: res.Red_png,
+    purple: res.Purple_png,
+    yellow: res.Yellow_png,
+};
 
-const GameLayer = cc.Layer.extend({
-    sprite: null,
-    algLee: {
+const {
+    Layer, Sprite, eventManager, rect, EventListener, rectContainsPoint, winSize,
+} = cc;
+export default class gameLayer {
+    algLee = {
         marked: [],
         current: [],
         start: null,
@@ -44,7 +45,7 @@ const GameLayer = cc.Layer.extend({
             this.current.push(this.start.tag);
             while (this.current.length) {
                 this.current.forEach((currentItem) => {
-                    const { x, y } = this.parent.getCoordinatesFromTag(currentItem);
+                    const { x, y } = gameLayer.getCoordinatesFromTag(currentItem);
                     [
                         { x: x + 1, y },
                         { x: x - 1, y },
@@ -63,28 +64,65 @@ const GameLayer = cc.Layer.extend({
             this.cleanUp();
             return marked.length && marked.length >= K ? marked : null;
         },
-    },
-    size: cc.winSize,
-    /* eslint-disable no-undef */
-    tileColors: {
-        blue: res.Blue_png,
-        green: res.Green_png,
-        red: res.Red_png,
-        purple: res.Purple_png,
-        yellow: res.Yellow_png,
-    },
-    /* eslint-enable no-undef */
-    xTilePosition(width, index) {
-        return width / 4 + index * 51;
-    },
-    yTilePosition(height, index) {
-        return height / 1.25 - index * 51;
-    },
+    };
+
+    constructor(scene) {
+        const Instance = Layer.extend({
+            ctor() {
+                this._super();
+                return true;
+            },
+        });
+
+        this.scene = scene;
+        this.instance = new Instance();
+        this.init();
+        scene.addChild(this.instance);
+    }
+
+    init() {
+        this.instance.setName('game');
+        this.algLee.parent = this.instance;
+        for (let y = M - 1; y >= 0; y -= 1) {
+            for (let x = 0; x < N; x += 1) {
+                this.createTile(x, y);
+            }
+        }
+        return true;
+    }
+
+    createTile(x, y, color = null) {
+        const tileKeys = Object.keys(tileColors);
+        const randomIndex = Math.floor(Math.random() * tileKeys.length);
+        const colorImg = color ?? tileColors[tileKeys[randomIndex]];
+        const sprite = new Sprite(colorImg);
+        sprite.attr({
+            x: gameLayer.xTilePosition(winSize.width, x),
+            y: gameLayer.yTilePosition(winSize.height, y),
+            scale: 0.3,
+        });
+        sprite.setLocalZOrder(100000 - y);
+        this.instance.addChild(sprite);
+        const tag = `${x}${y}`;
+        sprite.setTag(tag);
+        eventManager.addListener(this.tileTouchListener(tag, colorImg), sprite);
+    }
+
+    static xTilePosition = (width, index) => width / 4 + index * 51;
+
+    static yTilePosition = (height, index) => height / 1.25 - index * 51;
+
+    static getCoordinatesFromTag = (tag) => {
+        const x = parseInt(tag[0], 10);
+        const y = parseInt(tag[1], 10);
+        return { x, y };
+    };
+
     hasChain() {
         for (let y = M - 1; y >= 0; y -= 1) {
             for (let x = 0; x < N; x += 1) {
                 const tag = `${x}${y}`;
-                const colorImg = this.getChildByTag(tag).texture.url;
+                const colorImg = this.instance.getChildByTag(tag).texture.url;
                 const tilesToDelete = this.algLee.execute({ tag, colorImg });
                 if (tilesToDelete) {
                     return true;
@@ -92,28 +130,8 @@ const GameLayer = cc.Layer.extend({
             }
         }
         return false;
-    },
-    getCoordinatesFromTag(tag) {
-        const x = parseInt(tag[0], 10);
-        const y = parseInt(tag[1], 10);
-        return { x, y };
-    },
-    createTile(x, y, color = null) {
-        const tileKeys = Object.keys(this.tileColors);
-        const randomIndex = Math.floor(Math.random() * tileKeys.length);
-        const colorImg = color ?? this.tileColors[tileKeys[randomIndex]];
-        const sprite = new cc.Sprite(colorImg);
-        sprite.attr({
-            x: this.xTilePosition(this.size.width, x),
-            y: this.yTilePosition(this.size.height, y),
-            scale: 0.3,
-        });
-        sprite.setLocalZOrder(100000 - y);
-        this.addChild(sprite);
-        const tag = `${x}${y}`;
-        sprite.setTag(tag);
-        cc.eventManager.addListener(this.tileTouchListener(tag, colorImg), sprite);
-    },
+    }
+
     moveDownTiles(deletedTilesList) {
         Object.keys(deletedTilesList).forEach((column) => {
             let columnArray = deletedTilesList[column];
@@ -122,7 +140,7 @@ const GameLayer = cc.Layer.extend({
                 const lowestEmptyRow = sortedColumnArray.shift(0);
                 for (let upperRow = lowestEmptyRow - 1; upperRow >= 0; upperRow -= 1) {
                     const oldTag = `${column}${upperRow}`;
-                    if (this.getChildByTag(oldTag)) {
+                    if (this.instance.getChildByTag(oldTag)) {
                         const newTag = `${column}${lowestEmptyRow}`;
                         this.moveTile(oldTag, newTag);
                         columnArray.push(upperRow);
@@ -132,17 +150,19 @@ const GameLayer = cc.Layer.extend({
                 columnArray = sortedColumnArray;
             }
         });
-    },
+    }
+
     fillTiles(deletedTilesList) {
         Object.keys(deletedTilesList).forEach((column) => {
             for (let i = 0; i <= deletedTilesList[column].length - 1; i += 1) {
                 this.createTile(column, i);
             }
         });
-    },
+    }
+
     moveTile(oldTag, newTag) {
-        const oldPlace = this.getChildByTag(oldTag);
-        const newPlace = this.getChildByTag(newTag);
+        const oldPlace = this.instance.getChildByTag(oldTag);
+        const newPlace = this.instance.getChildByTag(newTag);
         if (!oldPlace) {
             return;
         }
@@ -151,40 +171,43 @@ const GameLayer = cc.Layer.extend({
         }
 
         const color = oldPlace.texture.url;
-        this.removeChildByTag(oldTag, true);
-        const { x, y } = this.getCoordinatesFromTag(newTag);
+        this.instance.removeChildByTag(oldTag, true);
+        const { x, y } = gameLayer.getCoordinatesFromTag(newTag);
         this.createTile(x, y, color);
-    },
+    }
+
     swapTiles(firstTag, secondTag) {
-        const firstPlace = this.getChildByTag(firstTag);
+        const firstPlace = this.instance.getChildByTag(firstTag);
         if (!firstPlace) {
             return;
         }
-        const secondPlace = this.getChildByTag(secondTag);
+        const secondPlace = this.instance.getChildByTag(secondTag);
         if (!secondPlace) {
             return;
         }
 
         const firstColor = firstPlace.texture.url;
         const secondColor = secondPlace.texture.url;
-        this.removeChildByTag(firstTag, true);
-        this.removeChildByTag(secondTag, true);
-        const { x: firstX, y: firstY } = this.getCoordinatesFromTag(firstTag);
+        this.instance.removeChildByTag(firstTag, true);
+        this.instance.removeChildByTag(secondTag, true);
+        const { x: firstX, y: firstY } = gameLayer.getCoordinatesFromTag(firstTag);
         this.createTile(firstX, firstY, secondColor);
-        const { x: secondX, y: secondY } = this.getCoordinatesFromTag(secondTag);
+        const { x: secondX, y: secondY } = gameLayer.getCoordinatesFromTag(secondTag);
         this.createTile(secondX, secondY, firstColor);
-    },
+    }
+
     tileTouchListener(tag, colorImg) {
         const parent = this;
+        const uiLayer = this.scene.getChildByName('ui');
 
         return {
-            event: cc.EventListener.TOUCH_ONE_BY_ONE,
+            event: EventListener.TOUCH_ONE_BY_ONE,
             onTouchBegan(touch, event) {
                 const target = event.getCurrentTarget();
                 const locationInNode = target.convertToNodeSpace(touch.getLocation());
                 const s = target.getContentSize();
-                const rect = cc.rect(0, 0, s.width, s.height);
-                if (!cc.rectContainsPoint(rect, locationInNode)) {
+                const myRect = rect(0, 0, s.width, s.height);
+                if (!rectContainsPoint(myRect, locationInNode)) {
                     return false;
                 }
 
@@ -193,10 +216,10 @@ const GameLayer = cc.Layer.extend({
                     return false;
                 }
 
-                const movesElem = parent.uiLayer.getChildByName('moves');
-                const pointsElem = parent.uiLayer.getChildByName('points');
+                const movesElem = uiLayer.getChildByName('moves');
+                const pointsElem = uiLayer.getChildByName('points');
                 const points = parseInt(pointsElem.getString(), 10);
-                const progressElem = parent.uiLayer.getChildByName('progress');
+                const progressElem = uiLayer.getChildByName('progress');
 
                 movesElem.setString(parseInt(movesElem.getString(), 10) - 1);
                 pointsElem.setString(points + tilesToDelete.length);
@@ -208,11 +231,11 @@ const GameLayer = cc.Layer.extend({
                 });
 
                 tilesToDelete.forEach((deletedTile) => {
-                    parent.removeChildByTag(deletedTile);
+                    parent.instance.removeChildByTag(deletedTile);
                 });
 
                 const deletedTilesList = tilesToDelete.reduce((result, coordinates) => {
-                    const { x, y } = parent.getCoordinatesFromTag(coordinates);
+                    const { x, y } = gameLayer.getCoordinatesFromTag(coordinates);
                     if (!result[x]) {
                         result[x] = [];
                     }
@@ -237,19 +260,5 @@ const GameLayer = cc.Layer.extend({
                 return true;
             },
         };
-    },
-    ctor() {
-        this._super();
-        this.setName('game');
-        this.algLee.parent = this;
-        this.uiLayer = this.getParent().getChildByName('ui');
-        for (let y = M - 1; y >= 0; y -= 1) {
-            for (let x = 0; x < N; x += 1) {
-                this.createTile(x, y);
-            }
-        }
-        return true;
-    },
-});
-
-export default GameLayer;
+    }
+}

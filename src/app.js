@@ -1,17 +1,13 @@
-import UILayer from './uiLayer';
-import GameLayer from './gameLayer';
+import UILayer from './layers/uiLayer';
+import GameLayer from './layers/gameLayer';
 
-// eslint-disable-next-line no-unused-vars
 const GameScene = cc.Scene.extend({
     onEnter() {
         this._super();
-        cc.log('first');
-        const uiLayer = new UILayer();
-        this.addChild(uiLayer);
-        cc.log('second');
-        const gameLayer = new GameLayer();
-        this.addChild(gameLayer);
-        cc.log('third');
+        // eslint-disable-next-line no-unused-vars
+        const uiLayer = new UILayer(this);
+        // eslint-disable-next-line no-unused-vars
+        const gameLayer = new GameLayer(this);
     },
 });
 
