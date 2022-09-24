@@ -1,7 +1,10 @@
 import { res } from '@/resource';
 import {
-    N, M, K, S,
-} from '../globalVariables';
+    N, M, K, S, UI, winPoints,
+} from '../configs/globalVariables';
+import BaseLayer from './BaseLayer';
+import { LoseScene, WinScene } from '../scene';
+import { sleepWhen } from '../helpers/AsyncHelper';
 
 const tileColors = {
     blue: res.Blue_png,
@@ -12,9 +15,11 @@ const tileColors = {
 };
 
 const {
-    Layer, Sprite, eventManager, rect, EventListener, rectContainsPoint, winSize,
+    Sprite, eventManager, rect, EventListener, rectContainsPoint, winSize, director, FadeIn, FadeOut,
 } = cc;
-export default class gameLayer {
+export default class GameLayer extends BaseLayer {
+    locked = false;
+
     algLee = {
         marked: [],
         current: [],
@@ -45,7 +50,7 @@ export default class gameLayer {
             this.current.push(this.start.tag);
             while (this.current.length) {
                 this.current.forEach((currentItem) => {
-                    const { x, y } = gameLayer.getCoordinatesFromTag(currentItem);
+                    const { x, y } = GameLayer.getCoordinatesFromTag(currentItem);
                     [
                         { x: x + 1, y },
                         { x: x - 1, y },
@@ -67,22 +72,21 @@ export default class gameLayer {
     };
 
     constructor(scene) {
-        const Instance = Layer.extend({
-            ctor() {
-                this._super();
-                return true;
-            },
-        });
-
-        this.scene = scene;
-        this.instance = new Instance();
+        super(scene);
         this.init();
-        scene.addChild(this.instance);
     }
 
     init() {
         this.instance.setName('game');
         this.algLee.parent = this.instance;
+        const field = new Sprite(res.Field_png);
+        field.attr({
+            x: GameLayer.xTilePosition(winSize.width, 0),
+            y: GameLayer.yTilePosition(winSize.height, 0),
+            scale: UI.commonScale,
+        });
+        field.setAnchorPoint(0.03, 0.97);
+        this.instance.addChild(field);
         for (let y = M - 1; y >= 0; y -= 1) {
             for (let x = 0; x < N; x += 1) {
                 this.createTile(x, y);
@@ -95,22 +99,27 @@ export default class gameLayer {
         const tileKeys = Object.keys(tileColors);
         const randomIndex = Math.floor(Math.random() * tileKeys.length);
         const colorImg = color ?? tileColors[tileKeys[randomIndex]];
-        const sprite = new Sprite(colorImg);
-        sprite.attr({
-            x: gameLayer.xTilePosition(winSize.width, x),
-            y: gameLayer.yTilePosition(winSize.height, y),
-            scale: 0.3,
+        const tile = new Sprite(colorImg);
+        tile.attr({
+            x: GameLayer.xTilePosition(winSize.width, x, tile.width),
+            y: GameLayer.yTilePosition(winSize.height, y, tile.width),
+            scale: UI.commonScale,
         });
-        sprite.setLocalZOrder(100000 - y);
-        this.instance.addChild(sprite);
+        tile.setAnchorPoint(0, 1);
+        tile.setLocalZOrder(100000 - y);
+        this.instance.addChild(tile);
+        if (!color) {
+            tile.setOpacity(0);
+        }
+        tile.runAction(FadeIn.create(1));
         const tag = `${x}${y}`;
-        sprite.setTag(tag);
-        eventManager.addListener(this.tileTouchListener(tag, colorImg), sprite);
+        tile.setTag(tag);
+        eventManager.addListener(this.tileTouchListener(tag, colorImg), tile);
     }
 
-    static xTilePosition = (width, index) => width / 4 + index * 51;
+    static xTilePosition = (width, index, tileWidth = 0) => width / 2 + tileWidth * UI.commonScale * index;
 
-    static yTilePosition = (height, index) => height / 1.25 - index * 51;
+    static yTilePosition = (height, index, tileWidth = 0) => height / 2 - tileWidth * UI.commonScale * index;
 
     static getCoordinatesFromTag = (tag) => {
         const x = parseInt(tag[0], 10);
@@ -172,7 +181,7 @@ export default class gameLayer {
 
         const color = oldPlace.texture.url;
         this.instance.removeChildByTag(oldTag, true);
-        const { x, y } = gameLayer.getCoordinatesFromTag(newTag);
+        const { x, y } = GameLayer.getCoordinatesFromTag(newTag);
         this.createTile(x, y, color);
     }
 
@@ -190,9 +199,9 @@ export default class gameLayer {
         const secondColor = secondPlace.texture.url;
         this.instance.removeChildByTag(firstTag, true);
         this.instance.removeChildByTag(secondTag, true);
-        const { x: firstX, y: firstY } = gameLayer.getCoordinatesFromTag(firstTag);
+        const { x: firstX, y: firstY } = GameLayer.getCoordinatesFromTag(firstTag);
         this.createTile(firstX, firstY, secondColor);
-        const { x: secondX, y: secondY } = gameLayer.getCoordinatesFromTag(secondTag);
+        const { x: secondX, y: secondY } = GameLayer.getCoordinatesFromTag(secondTag);
         this.createTile(secondX, secondY, firstColor);
     }
 
@@ -202,7 +211,7 @@ export default class gameLayer {
 
         return {
             event: EventListener.TOUCH_ONE_BY_ONE,
-            onTouchBegan(touch, event) {
+            async onTouchBegan(touch, event) {
                 const target = event.getCurrentTarget();
                 const locationInNode = target.convertToNodeSpace(touch.getLocation());
                 const s = target.getContentSize();
@@ -216,26 +225,53 @@ export default class gameLayer {
                     return false;
                 }
 
+                if (parent.locked) {
+                    return false;
+                }
+                parent.locked = true;
+
                 const movesElem = uiLayer.getChildByName('moves');
                 const pointsElem = uiLayer.getChildByName('points');
-                const points = parseInt(pointsElem.getString(), 10);
                 const progressElem = uiLayer.getChildByName('progress');
 
-                movesElem.setString(parseInt(movesElem.getString(), 10) - 1);
-                pointsElem.setString(points + tilesToDelete.length);
+                const points = parseInt(pointsElem.getString(), 10) + tilesToDelete.length;
+                if (points >= winPoints) {
+                    director.runScene(new WinScene());
+                    parent.locked = false;
+                    return false;
+                }
+
+                const movesLeft = parseInt(movesElem.getString(), 10) - 1;
+                if (movesLeft <= 0) {
+                    director.runScene(new LoseScene());
+                    parent.locked = false;
+                    return false;
+                }
+                movesElem.setString(movesLeft);
+                pointsElem.setString(points);
                 progressElem.attr({
-                    x: 200 + (progressElem.width * (points * 0.001)) / 2,
-                    y: 600,
-                    scaleY: 0.3,
-                    scaleX: 0.3 + points * 0.001,
+                    x: UI.progressBar.x + (progressElem.width * (points * 0.001)) / 2,
+                    y: UI.progressBar.y,
+                    scaleY: UI.commonScale,
+                    scaleX: UI.commonScale + points * 0.001,
                 });
 
-                tilesToDelete.forEach((deletedTile) => {
-                    parent.instance.removeChildByTag(deletedTile);
+                const promises = tilesToDelete.map((deletedTile) => {
+                    const tile = parent.instance.getChildByTag(deletedTile);
+                    const action = FadeOut.create(1);
+                    tile.runAction(action);
+                    return sleepWhen(() => {
+                        if (action.isDone()) {
+                            parent.instance.removeChildByTag(deletedTile);
+                            return true;
+                        }
+                        return false;
+                    }, 1);
                 });
+                await Promise.all(promises);
 
                 const deletedTilesList = tilesToDelete.reduce((result, coordinates) => {
-                    const { x, y } = gameLayer.getCoordinatesFromTag(coordinates);
+                    const { x, y } = GameLayer.getCoordinatesFromTag(coordinates);
                     if (!result[x]) {
                         result[x] = [];
                     }
@@ -255,8 +291,10 @@ export default class gameLayer {
                             parent.swapTiles(firstTag, secondTag);
                         }
                     }
+                    parent.locked = false;
                     return false;
                 }
+                parent.locked = false;
                 return true;
             },
         };

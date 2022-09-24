@@ -6,6 +6,8 @@ import Yellow from '../res/tileImages/Yellow.png';
 import Bar from '../res/uiImages/Bar.png';
 import PanelScore from '../res/uiImages/PanelScore.png';
 import Progress from '../res/uiImages/Progress.png';
+import Field from '../res/uiImages/Field.png';
+import Bonus from '../res/uiImages/Bonus.png';
 
 const res = {
     Blue_png: Blue,
@@ -16,6 +18,8 @@ const res = {
     Bar_png: Bar,
     PanelScore_png: PanelScore,
     Progress_png: Progress,
+    Field_png: Field,
+    Bonus_png: Bonus,
     Marvin_font: {
         type: 'font',
         name: 'Marvin',
