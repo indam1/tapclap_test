@@ -4,12 +4,13 @@ import { InitMoves, InitScore, UI } from '../configs/globalVariables';
 
 const { Sprite, LabelTTF } = cc;
 export default class UILayer extends BaseLayer {
-    constructor(scene) {
-        super(scene);
+    constructor(scene, gameState) {
+        super(scene, gameState);
         this.init();
     }
 
     init() {
+        this.name = 'ui';
         this.instance.setName('ui');
         // eslint-disable-next-line no-undef
         const panelScore = new Sprite(res.PanelScore_png);
@@ -21,20 +22,22 @@ export default class UILayer extends BaseLayer {
         panelScore.setAnchorPoint(0.5, 1);
         panelScore.setLocalZOrder(10);
         this.instance.addChild(panelScore);
-        this.addText(InitMoves, 'moves', 256, {
-            x: UI.panelScore.x,
-            y: UI.panelScore.y - 170 * UI.commonScale,
-            scale: UI.commonScale,
-        });
-        this.addText('очки:', 'pointsLabel', 82, {
-            x: UI.panelScore.x,
-            y: UI.panelScore.y - 670 * UI.commonScale,
-            scale: UI.commonScale,
-        });
-        this.addText(InitScore, 'points', 164, {
-            x: UI.panelScore.x,
-            y: UI.panelScore.y - 740 * UI.commonScale,
-            scale: UI.commonScale,
+        [
+            {
+                string: InitMoves, name: 'moves', fontSize: 256, offset: 170,
+            },
+            {
+                string: 'очки:', name: 'pointsLabel', fontSize: 82, offset: 670,
+            },
+            {
+                string: InitScore, name: 'points', fontSize: 164, offset: 740,
+            },
+        ].forEach((textData) => {
+            this.addText(textData.string, textData.name, textData.fontSize, {
+                x: UI.panelScore.x,
+                y: UI.panelScore.y - textData.offset * UI.commonScale,
+                scale: UI.commonScale,
+            });
         });
 
         // eslint-disable-next-line no-undef

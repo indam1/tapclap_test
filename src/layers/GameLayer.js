@@ -13,12 +13,15 @@ const tileColors = {
     purple: res.Purple_png,
     yellow: res.Yellow_png,
 };
-
 const {
     Sprite, eventManager, rect, EventListener, rectContainsPoint, winSize, director, FadeIn, FadeOut,
 } = cc;
 export default class GameLayer extends BaseLayer {
     locked = false;
+
+    mouseOvered = null;
+
+    tileToReplace = null;
 
     algLee = {
         marked: [],
@@ -71,12 +74,14 @@ export default class GameLayer extends BaseLayer {
         },
     };
 
-    constructor(scene) {
-        super(scene);
+    constructor(scene, gameState) {
+        super(scene, gameState);
         this.init();
     }
 
     init() {
+        this.name = 'game';
+        this.instance.setContentSize(cc.winSize.width / 2, cc.winSize.height / 2);
         this.instance.setName('game');
         this.algLee.parent = this.instance;
         const field = new Sprite(res.Field_png);
@@ -106,7 +111,6 @@ export default class GameLayer extends BaseLayer {
             scale: UI.commonScale,
         });
         tile.setAnchorPoint(0, 1);
-        tile.setLocalZOrder(100000 - y);
         this.instance.addChild(tile);
         if (!color) {
             tile.setOpacity(0);
@@ -115,11 +119,12 @@ export default class GameLayer extends BaseLayer {
         const tag = `${x}${y}`;
         tile.setTag(tag);
         eventManager.addListener(this.tileTouchListener(tag, colorImg), tile);
+        eventManager.addListener(this.tileMouseListener(tag), tile);
     }
 
     static xTilePosition = (width, index, tileWidth = 0) => width / 2 + tileWidth * UI.commonScale * index;
 
-    static yTilePosition = (height, index, tileWidth = 0) => height / 2 - tileWidth * UI.commonScale * index;
+    static yTilePosition = (height, index, tileWidth = 0) => height / 1.5 - tileWidth * UI.commonScale * index;
 
     static getCoordinatesFromTag = (tag) => {
         const x = parseInt(tag[0], 10);
@@ -163,7 +168,7 @@ export default class GameLayer extends BaseLayer {
 
     fillTiles(deletedTilesList) {
         Object.keys(deletedTilesList).forEach((column) => {
-            for (let i = 0; i <= deletedTilesList[column].length - 1; i += 1) {
+            for (let i = deletedTilesList[column].length - 1; i >= 0; i -= 1) {
                 this.createTile(column, i);
             }
         });
@@ -205,9 +210,154 @@ export default class GameLayer extends BaseLayer {
         this.createTile(secondX, secondY, firstColor);
     }
 
+    // Проходим по кругу по сторонам ромба и вносим его координаты
+    static createBomb(tag) {
+        const R = 4;
+        const { x, y } = GameLayer.getCoordinatesFromTag(tag); // 3;4
+        const tiles = [];
+        for (let i = 0; i < R; i += 1) {
+            const diagonalIterations = R - i;
+            for (let j = 0; j < diagonalIterations; j += 1) {
+                const tagX = x - R + 1 + j + i;
+                const tagY = y + j;
+                tiles.push(`${tagX}${tagY}`);
+            }
+            for (let j = 0; j < diagonalIterations - 1; j += 1) {
+                const tagX = x + 1 + j;
+                const tagY = y + R - 2 - j - i;
+                tiles.push(`${tagX}${tagY}`);
+            }
+            for (let j = 0; j < diagonalIterations - 1; j += 1) {
+                const tagX = x + R - 2 - j - i;
+                const tagY = y - 1 - j;
+                tiles.push(`${tagX}${tagY}`);
+            }
+            for (let j = 0; j < diagonalIterations - 2; j += 1) {
+                const tagX = x - 1 - j;
+                const tagY = y - R + 2 + j + i;
+                tiles.push(`${tagX}${tagY}`);
+            }
+        }
+        return tiles;
+    }
+
+    selectTileToReplace() {
+        if (this.locked) {
+            return;
+        }
+        this.locked = true;
+        this.tileToReplace = this.mouseOvered;
+    }
+
+    selectTilesToDelete(isBomb) {
+        return isBomb ? GameLayer.createBomb(this.mouseOvered) : [];
+    }
+
+    async deleteTiles(tiles = null, isBomb = false) {
+        if (isBomb && !this.mouseOvered) {
+            return false;
+        }
+        if (this.locked) {
+            return false;
+        }
+        this.locked = true;
+        const uiLayer = this.scene.getChildByName('ui');
+        const movesElem = uiLayer.getChildByName('moves');
+        const pointsElem = uiLayer.getChildByName('points');
+        const progressElem = uiLayer.getChildByName('progress');
+
+        const tilesToDelete = tiles ?? this.selectTilesToDelete(isBomb);
+        const filteredTilesToDelete = tilesToDelete.filter((tile) => !!this.instance.getChildByTag(tile));
+        const points = parseInt(pointsElem.getString(), 10) + filteredTilesToDelete.length;
+        if (points >= winPoints) {
+            director.runScene(new WinScene());
+            this.locked = false;
+            return false;
+        }
+
+        const movesLeft = parseInt(movesElem.getString(), 10) - 1;
+        if (movesLeft <= 0) {
+            director.runScene(new LoseScene());
+            this.locked = false;
+            return false;
+        }
+
+        movesElem.setString(movesLeft);
+        pointsElem.setString(points);
+        progressElem.attr({
+            x: UI.progressBar.x + (progressElem.width * (points * 0.001)) / 2,
+            y: UI.progressBar.y,
+            scaleY: UI.commonScale,
+            scaleX: UI.commonScale + points * 0.001,
+        });
+
+        const promises = filteredTilesToDelete.map((deletedTile) => {
+            const tile = this.instance.getChildByTag(deletedTile);
+            if (!tile) {
+                return null;
+            }
+            const action = FadeOut.create(1);
+            tile.runAction(action);
+            return sleepWhen(() => {
+                if (action.isDone()) {
+                    this.instance.removeChildByTag(deletedTile);
+                    return true;
+                }
+                return false;
+            }, 1);
+        });
+        await Promise.all(promises);
+
+        const deletedTilesList = filteredTilesToDelete.reduce((result, coordinates) => {
+            const { x, y } = GameLayer.getCoordinatesFromTag(coordinates);
+            if (!result[x]) {
+                result[x] = [];
+            }
+            result[x].push(y);
+            return result;
+        }, {});
+
+        const newObj = JSON.parse(JSON.stringify(deletedTilesList));
+        this.moveDownTiles(deletedTilesList);
+        this.fillTiles(newObj);
+
+        if (!this.hasChain()) {
+            for (let i = 0; i < S; i += 1) {
+                const firstTag = `${Math.floor(Math.random() * N)}${Math.floor(Math.random() * M)}`;
+                const secondTag = `${Math.floor(Math.random() * N)}${Math.floor(Math.random() * M)}`;
+                if (firstTag !== secondTag) {
+                    this.swapTiles(firstTag, secondTag);
+                }
+            }
+            this.locked = false;
+            return false;
+        }
+        this.locked = false;
+        return true;
+    }
+
+    tileMouseListener(tag) {
+        const tile = this.instance.getChildByTag(tag);
+        const parent = this;
+        return {
+            event: EventListener.MOUSE,
+            onMouseMove(event) {
+                const locationInNode = tile.convertToNodeSpace(event.getLocation());
+                const s = tile.getContentSize();
+                const myRect = rect(0, 0, s.width, s.height);
+                if (!rectContainsPoint(myRect, locationInNode)) {
+                    if (parent.mouseOvered === tag) {
+                        parent.mouseOvered = null;
+                    }
+                    return;
+                }
+                parent.mouseOvered = tag;
+            },
+        };
+    }
+
     tileTouchListener(tag, colorImg) {
         const parent = this;
-        const uiLayer = this.scene.getChildByName('ui');
 
         return {
             event: EventListener.TOUCH_ONE_BY_ONE,
@@ -220,82 +370,18 @@ export default class GameLayer extends BaseLayer {
                     return false;
                 }
 
+                if (parent.tileToReplace) {
+                    parent.swapTiles(parent.tileToReplace, tag);
+                    parent.tileToReplace = null;
+                    parent.locked = false;
+                    return true;
+                }
                 const tilesToDelete = parent.algLee.execute({ tag, colorImg });
                 if (!tilesToDelete) {
                     return false;
                 }
 
-                if (parent.locked) {
-                    return false;
-                }
-                parent.locked = true;
-
-                const movesElem = uiLayer.getChildByName('moves');
-                const pointsElem = uiLayer.getChildByName('points');
-                const progressElem = uiLayer.getChildByName('progress');
-
-                const points = parseInt(pointsElem.getString(), 10) + tilesToDelete.length;
-                if (points >= winPoints) {
-                    director.runScene(new WinScene());
-                    parent.locked = false;
-                    return false;
-                }
-
-                const movesLeft = parseInt(movesElem.getString(), 10) - 1;
-                if (movesLeft <= 0) {
-                    director.runScene(new LoseScene());
-                    parent.locked = false;
-                    return false;
-                }
-                movesElem.setString(movesLeft);
-                pointsElem.setString(points);
-                progressElem.attr({
-                    x: UI.progressBar.x + (progressElem.width * (points * 0.001)) / 2,
-                    y: UI.progressBar.y,
-                    scaleY: UI.commonScale,
-                    scaleX: UI.commonScale + points * 0.001,
-                });
-
-                const promises = tilesToDelete.map((deletedTile) => {
-                    const tile = parent.instance.getChildByTag(deletedTile);
-                    const action = FadeOut.create(1);
-                    tile.runAction(action);
-                    return sleepWhen(() => {
-                        if (action.isDone()) {
-                            parent.instance.removeChildByTag(deletedTile);
-                            return true;
-                        }
-                        return false;
-                    }, 1);
-                });
-                await Promise.all(promises);
-
-                const deletedTilesList = tilesToDelete.reduce((result, coordinates) => {
-                    const { x, y } = GameLayer.getCoordinatesFromTag(coordinates);
-                    if (!result[x]) {
-                        result[x] = [];
-                    }
-                    result[x].push(y);
-                    return result;
-                }, {});
-
-                const newObj = JSON.parse(JSON.stringify(deletedTilesList));
-                parent.moveDownTiles(deletedTilesList);
-                parent.fillTiles(newObj);
-
-                if (!parent.hasChain()) {
-                    for (let i = 0; i < S; i += 1) {
-                        const firstTag = `${Math.floor(Math.random() * N)}${Math.floor(Math.random() * M)}`;
-                        const secondTag = `${Math.floor(Math.random() * N)}${Math.floor(Math.random() * M)}`;
-                        if (firstTag !== secondTag) {
-                            parent.swapTiles(firstTag, secondTag);
-                        }
-                    }
-                    parent.locked = false;
-                    return false;
-                }
-                parent.locked = false;
-                return true;
+                return parent.deleteTiles(tilesToDelete);
             },
         };
     }
