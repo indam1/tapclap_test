@@ -32,6 +32,7 @@
     }
   },
   "rules": {
+    "no-new": "off",
     "no-promise-executor-return": "off",
     "new-cap": "off",
     "indent": ["error", 4],

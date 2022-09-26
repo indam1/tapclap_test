@@ -1,4 +1,4 @@
-import { UI } from '../configs/globalVariables';
+import { commonScale, UI } from '../configs/ui';
 import BaseLayerColor from './BaseLayerColor';
 
 const { LabelTTF } = cc;
@@ -13,8 +13,8 @@ export default class ResultLayer extends BaseLayerColor {
         this.instance.setName('result');
         this.addText(this.result, 'result', 256, {
             x: UI.panelScore.x,
-            y: UI.panelScore.y - 170 * UI.commonScale,
-            scale: UI.commonScale,
+            y: UI.panelScore.y - 170 * commonScale,
+            scale: commonScale,
         });
     }
 

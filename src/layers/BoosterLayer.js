@@ -1,12 +1,13 @@
 import { res } from '@/resource';
 import BaseLayer from './BaseLayer';
-import { InitBonuses, UI } from '../configs/bonus';
-import { commonScale } from '../configs/globalVariables';
+import { INIT_BOOSTERS } from '../configs/booster';
+import { commonScale, UI } from '../configs/ui';
+import { isInRect } from '../helpers/PositionHelper';
 
 const {
-    Sprite, LabelTTF, eventManager, EventListener, rect, rectContainsPoint,
+    Sprite, LabelTTF, eventManager, EventListener,
 } = cc;
-export default class BonusLayer extends BaseLayer {
+export default class BoosterLayer extends BaseLayer {
     constructor(scene, gameState) {
         super(scene, gameState);
         this.init();
@@ -14,28 +15,28 @@ export default class BonusLayer extends BaseLayer {
 
     init() {
         this.instance.setContentSize(cc.winSize.width / 2, cc.winSize.height / 2);
-        this.instance.setName('bonus');
-        [{ name: 'bomb' }, { name: 'teleport' }].forEach((bonus) => {
-            this.initBonus(bonus.name);
+        this.instance.setName('booster');
+        [{ name: 'bomb' }, { name: 'teleport' }].forEach((booster) => {
+            this.initBooster(booster.name);
         });
     }
 
-    initBonus(name) {
-        const bonus = new Sprite(res.Bonus_png);
-        bonus.setAnchorPoint(0.5, 1);
-        bonus.setName(name);
-        bonus.attr({
+    initBooster(name) {
+        const booster = new Sprite(res.Booster_png);
+        booster.setAnchorPoint(0.5, 1);
+        booster.setName(name);
+        booster.attr({
             x: UI[name].x,
             y: UI[name].y,
             scale: commonScale,
         });
-        this.instance.addChild(bonus);
-        this.addText(InitBonuses[name], `${name}Text`, 80, {
+        this.instance.addChild(booster);
+        this.addText(INIT_BOOSTERS[name], `${name}Text`, 80, {
             x: UI[name].x - 30 * commonScale,
             y: UI[name].y - 265 * commonScale,
             scale: commonScale,
         });
-        eventManager.addListener(this.eventListener(name), bonus);
+        eventManager.addListener(this.eventListener(name), booster);
     }
 
     eventListener(name) {
@@ -46,32 +47,29 @@ export default class BonusLayer extends BaseLayer {
             event: EventListener.TOUCH_ONE_BY_ONE,
             onTouchBegan(touch, event) {
                 const target = event.getCurrentTarget();
-                const locationInNode = target.convertToNodeSpace(touch.getLocation());
-                const s = target.getContentSize();
-                const myRect = rect(0, 0, s.width, s.height);
-                if (!rectContainsPoint(myRect, locationInNode)) {
+                if (!isInRect(touch, target)) {
                     return false;
                 }
 
-                const bonus = new Sprite(res.Blue_png);
-                bonus.attr({
+                const booster = new Sprite(res.Blue_png);
+                booster.attr({
                     x: touch.getLocationX(),
                     y: touch.getLocationY(),
                     scale: commonScale,
                 });
-                bonus.setTag(tag);
-                instance.addChild(bonus);
+                booster.setTag(tag);
+                instance.addChild(booster);
                 return true;
             },
             onTouchMoved(touch) {
-                const bonus = instance.getChildByTag(tag);
-                bonus.setPositionX(touch.getLocationX());
-                bonus.setPositionY(touch.getLocationY());
+                const booster = instance.getChildByTag(tag);
+                booster.setPositionX(touch.getLocationX());
+                booster.setPositionY(touch.getLocationY());
             },
             async onTouchEnded() {
                 instance.removeChildByTag(tag);
                 if (name === 'bomb') {
-                    await gameLayer.deleteTiles(null, true);
+                    await gameLayer.doMove(null, true);
                 }
                 if (name === 'teleport') {
                     gameLayer.selectTileToReplace();

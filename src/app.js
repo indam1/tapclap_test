@@ -1,7 +1,7 @@
 import UILayer from './layers/UILayer';
 import GameLayer from './layers/GameLayer';
 import BaseLayerColor from './layers/BaseLayerColor';
-import BonusLayer from './layers/BonusLayer';
+import BoosterLayer from './layers/BoosterLayer';
 
 const gameState = [];
 const GameScene = cc.Scene.extend({
@@ -18,8 +18,8 @@ const GameScene = cc.Scene.extend({
         gameState.push(uiLayer);
         const gameLayer = new GameLayer(this, gameState);
         gameState.push(gameLayer);
-        const bonusLayer = new BonusLayer(this, gameState);
-        gameState.push(bonusLayer);
+        const boosterLayer = new BoosterLayer(this, gameState);
+        gameState.push(boosterLayer);
     },
 });
 

@@ -1,5 +1,4 @@
 export const commonScale = 0.2;
-export const winPoints = 500;
 export const UI = {
     panelScore: {
         x: 200,
@@ -11,6 +10,14 @@ export const UI = {
     },
     progressBar: {
         x: 200,
+        y: 600,
+    },
+    bomb: {
+        x: 700,
+        y: 600,
+    },
+    teleport: {
+        x: 800,
         y: 600,
     },
 };
