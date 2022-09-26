@@ -75,8 +75,7 @@ export default class BaseTile {
 
                 const tilesBySuper = selectTilesBySuper(target.texture.url, parent.tag);
                 if (tilesBySuper.length) {
-                    await parent.gameLayer.doMove(tilesBySuper);
-                    return true;
+                    return parent.gameLayer.doMove(tilesBySuper);
                 }
 
                 const tilesToDelete = LeeAlgorithm({

@@ -3,7 +3,7 @@ import { commonScale, UI } from '../configs/ui';
 import { WIDTH, HEIGHT } from '../configs/field';
 import BaseLayer from './BaseLayer';
 import { LoseScene, WinScene } from '../scene';
-import { sleepWhen } from '../helpers/AsyncHelper';
+import { sleep, sleepWhen } from '../helpers/AsyncHelper';
 import { LeeAlgorithm } from '../helpers/AlgorithmHelper';
 import { MIXES, WIN_POINTS } from '../configs/rules';
 import BaseTile from '../objects/BaseTile';
@@ -155,8 +155,12 @@ export default class GameLayer extends BaseLayer {
         tiles.splice(tagIndex, 1);
     }
 
+    hasBombConflict(isBomb) {
+        return isBomb && !this.mouseOvered;
+    }
+
     async doMove(tiles = null, isBomb = false, superTileInfo = null) {
-        if (isBomb && !this.mouseOvered) {
+        if (this.hasBombConflict(isBomb)) {
             return false;
         }
         if (this.locked) {
@@ -171,21 +175,10 @@ export default class GameLayer extends BaseLayer {
         const tilesToDelete = tiles ?? (isBomb ? createBomb(this.mouseOvered) : []);
         const filteredTilesToDelete = tilesToDelete.filter((tile) => !!this.instance.getChildByTag(tile));
         const points = parseInt(pointsElem.getString(), 10) + filteredTilesToDelete.length;
-        if (points >= WIN_POINTS) {
-            director.runScene(new WinScene());
-            this.locked = false;
-            return false;
-        }
-
         const movesLeft = parseInt(movesElem.getString(), 10) - 1;
-        if (movesLeft <= 0) {
-            director.runScene(new LoseScene());
-            this.locked = false;
-            return false;
-        }
-
         movesElem.setString(movesLeft);
         pointsElem.setString(points);
+
         progressElem.attr({
             x: UI.progressBar.x,
             y: UI.progressBar.y,
@@ -205,6 +198,20 @@ export default class GameLayer extends BaseLayer {
 
         this.moveDownTiles(tilesToMove);
         this.fillEmptyTiles(deletedTilesToFill);
+
+        if (points >= WIN_POINTS) {
+            await sleep(1000);
+            director.runScene(new WinScene());
+            this.locked = false;
+            return false;
+        }
+
+        if (movesLeft <= 0) {
+            await sleep(1000);
+            director.runScene(new LoseScene());
+            this.locked = false;
+            return false;
+        }
 
         if (!this.hasChain()) {
             this.mixTiles();
