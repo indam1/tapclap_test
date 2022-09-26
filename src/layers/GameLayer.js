@@ -1,10 +1,11 @@
 import { res } from '@/resource';
 import {
-    N, M, K, S, UI, winPoints,
+    N, M, S, UI, winPoints,
 } from '../configs/globalVariables';
 import BaseLayer from './BaseLayer';
 import { LoseScene, WinScene } from '../scene';
 import { sleepWhen } from '../helpers/AsyncHelper';
+import { LeeAlgorithm } from '../helpers/AlgorithmHelper';
 
 const tileColors = {
     blue: res.Blue_png,
@@ -23,57 +24,6 @@ export default class GameLayer extends BaseLayer {
 
     tileToReplace = null;
 
-    algLee = {
-        marked: [],
-        current: [],
-        start: null,
-        parent: null,
-        cleanUp() {
-            this.marked = [];
-            this.current = [];
-            this.start = null;
-        },
-        canAdd(x, y) {
-            const tag = `${x}${y}`;
-            const tile = this.parent.getChildByTag(tag);
-            return tile
-                && !this.marked.includes(tag)
-                && !this.current.includes(tag)
-                && this.start.colorImg === tile.texture.url;
-        },
-        mark(x, y) {
-            const tag = `${x}${y}`;
-            this.current.push(tag);
-        },
-        execute(start) {
-            if (!start) {
-                return null;
-            }
-            this.start = start;
-            this.current.push(this.start.tag);
-            while (this.current.length) {
-                this.current.forEach((currentItem) => {
-                    const { x, y } = GameLayer.getCoordinatesFromTag(currentItem);
-                    [
-                        { x: x + 1, y },
-                        { x: x - 1, y },
-                        { x, y: y + 1 },
-                        { x, y: y - 1 },
-                    ].forEach((variant) => {
-                        if (this.canAdd(variant.x, variant.y)) {
-                            this.mark(variant.x, variant.y);
-                        }
-                    });
-                    this.marked.push(currentItem);
-                    this.current = this.current.filter((currentBufferItem) => currentBufferItem !== currentItem);
-                });
-            }
-            const { marked } = this;
-            this.cleanUp();
-            return marked.length && marked.length >= K ? marked : null;
-        },
-    };
-
     constructor(scene, gameState) {
         super(scene, gameState);
         this.init();
@@ -83,7 +33,6 @@ export default class GameLayer extends BaseLayer {
         this.name = 'game';
         this.instance.setContentSize(cc.winSize.width / 2, cc.winSize.height / 2);
         this.instance.setName('game');
-        this.algLee.parent = this.instance;
         const field = new Sprite(res.Field_png);
         field.attr({
             x: GameLayer.xTilePosition(winSize.width, 0),
@@ -137,7 +86,7 @@ export default class GameLayer extends BaseLayer {
             for (let x = 0; x < N; x += 1) {
                 const tag = `${x}${y}`;
                 const colorImg = this.instance.getChildByTag(tag).texture.url;
-                const tilesToDelete = this.algLee.execute({ tag, colorImg });
+                const tilesToDelete = LeeAlgorithm({ tag, colorImg }, this.instance);
                 if (tilesToDelete) {
                     return true;
                 }
@@ -253,7 +202,7 @@ export default class GameLayer extends BaseLayer {
         return isBomb ? GameLayer.createBomb(this.mouseOvered) : [];
     }
 
-    async deleteTiles(tiles = null, isBomb = false) {
+    async deleteTiles(tiles = null, isBomb = false, superTileInfo = null) {
         if (isBomb && !this.mouseOvered) {
             return false;
         }
@@ -308,7 +257,15 @@ export default class GameLayer extends BaseLayer {
         });
         await Promise.all(promises);
 
-        const deletedTilesList = filteredTilesToDelete.reduce((result, coordinates) => {
+        const newObj = JSON.parse(JSON.stringify(filteredTilesToDelete));
+        if (superTileInfo) {
+            const { x, y } = GameLayer.getCoordinatesFromTag(superTileInfo.tag);
+            this.createTile(x, y, superTileInfo.action);
+            const tagIndex = filteredTilesToDelete.findIndex((tagItem) => tagItem === superTileInfo.tag);
+            filteredTilesToDelete.splice(tagIndex, 1);
+        }
+
+        const tilesToMove = newObj.reduce((result, coordinates) => {
             const { x, y } = GameLayer.getCoordinatesFromTag(coordinates);
             if (!result[x]) {
                 result[x] = [];
@@ -317,9 +274,17 @@ export default class GameLayer extends BaseLayer {
             return result;
         }, {});
 
-        const newObj = JSON.parse(JSON.stringify(deletedTilesList));
-        this.moveDownTiles(deletedTilesList);
-        this.fillTiles(newObj);
+        const deletedTilesToFill = filteredTilesToDelete.reduce((result, coordinates) => {
+            const { x, y } = GameLayer.getCoordinatesFromTag(coordinates);
+            if (!result[x]) {
+                result[x] = [];
+            }
+            result[x].push(y);
+            return result;
+        }, {});
+
+        this.moveDownTiles(tilesToMove);
+        this.fillTiles(deletedTilesToFill);
 
         if (!this.hasChain()) {
             for (let i = 0; i < S; i += 1) {
@@ -356,6 +321,27 @@ export default class GameLayer extends BaseLayer {
         };
     }
 
+    static selectAction(length, tag) {
+        const superTileInfo = { tag };
+        if (length >= 10) {
+            superTileInfo.action = res.SuperAll_png;
+            return superTileInfo;
+        }
+        if (length >= 8) {
+            superTileInfo.action = res.SuperBomb_png;
+            return superTileInfo;
+        }
+        if (length >= 6) {
+            superTileInfo.action = res.SuperColumn_png;
+            return superTileInfo;
+        }
+        if (length >= 4) {
+            superTileInfo.action = res.SuperRow_png;
+            return superTileInfo;
+        }
+        return null;
+    }
+
     tileTouchListener(tag, colorImg) {
         const parent = this;
 
@@ -376,12 +362,51 @@ export default class GameLayer extends BaseLayer {
                     parent.locked = false;
                     return true;
                 }
-                const tilesToDelete = parent.algLee.execute({ tag, colorImg });
+
+                if (target.texture.url === res.SuperAll_png) {
+                    const superTiles = [];
+                    for (let i = 0; i < N; i += 1) {
+                        for (let j = 0; j < M; j += 1) {
+                            superTiles.push(`${i}${j}`);
+                        }
+                    }
+                    await parent.deleteTiles(superTiles);
+                    return true;
+                }
+
+                if (target.texture.url === res.SuperRow_png) {
+                    const { y } = GameLayer.getCoordinatesFromTag(tag);
+                    const superTiles = [];
+                    for (let i = 0; i < N; i += 1) {
+                        superTiles.push(`${i}${y}`);
+                    }
+                    await parent.deleteTiles(superTiles);
+                    return true;
+                }
+
+                if (target.texture.url === res.SuperColumn_png) {
+                    const { x } = GameLayer.getCoordinatesFromTag(tag);
+                    const superTiles = [];
+                    for (let i = 0; i < M; i += 1) {
+                        superTiles.push(`${x}${i}`);
+                    }
+                    await parent.deleteTiles(superTiles);
+                    return true;
+                }
+
+                if (target.texture.url === res.SuperBomb_png) {
+                    parent.mouseOvered = tag;
+                    await parent.deleteTiles(null, true);
+                    return true;
+                }
+
+                const tilesToDelete = LeeAlgorithm({ tag, colorImg }, parent.instance);
                 if (!tilesToDelete) {
                     return false;
                 }
 
-                return parent.deleteTiles(tilesToDelete);
+                const superTileInfo = GameLayer.selectAction(tilesToDelete.length, tag);
+                return parent.deleteTiles(tilesToDelete, false, superTileInfo);
             },
         };
     }

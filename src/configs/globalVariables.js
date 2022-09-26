@@ -10,7 +10,7 @@ export const InitBonuses = {
     teleport: 6,
     superTile: 4,
 };
-export const winPoints = 100;
+export const winPoints = 500;
 export const UI = {
     commonScale: 0.2,
     panelScore: {
