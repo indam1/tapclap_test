@@ -1,6 +1,7 @@
 import { res } from '@/resource';
 import BaseLayer from './BaseLayer';
-import { InitBonuses, UI } from '../configs/globalVariables';
+import { InitBonuses, UI } from '../configs/bonus';
+import { commonScale } from '../configs/globalVariables';
 
 const {
     Sprite, LabelTTF, eventManager, EventListener, rect, rectContainsPoint,
@@ -15,24 +16,24 @@ export default class BonusLayer extends BaseLayer {
         this.instance.setContentSize(cc.winSize.width / 2, cc.winSize.height / 2);
         this.instance.setName('bonus');
         [{ name: 'bomb' }, { name: 'teleport' }].forEach((bonus) => {
-            this.addBonus(bonus.name);
+            this.initBonus(bonus.name);
         });
     }
 
-    addBonus(name) {
+    initBonus(name) {
         const bonus = new Sprite(res.Bonus_png);
         bonus.setAnchorPoint(0.5, 1);
         bonus.setName(name);
         bonus.attr({
-            x: UI.bonuses[name].x,
-            y: UI.bonuses[name].y,
-            scale: UI.commonScale,
+            x: UI[name].x,
+            y: UI[name].y,
+            scale: commonScale,
         });
         this.instance.addChild(bonus);
         this.addText(InitBonuses[name], `${name}Text`, 80, {
-            x: UI.bonuses[name].x - 30 * UI.commonScale,
-            y: UI.bonuses[name].y - 265 * UI.commonScale,
-            scale: UI.commonScale,
+            x: UI[name].x - 30 * commonScale,
+            y: UI[name].y - 265 * commonScale,
+            scale: commonScale,
         });
         eventManager.addListener(this.eventListener(name), bonus);
     }
@@ -56,7 +57,7 @@ export default class BonusLayer extends BaseLayer {
                 bonus.attr({
                     x: touch.getLocationX(),
                     y: touch.getLocationY(),
-                    scale: UI.commonScale,
+                    scale: commonScale,
                 });
                 bonus.setTag(tag);
                 instance.addChild(bonus);
