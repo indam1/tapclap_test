@@ -2,6 +2,7 @@ import { res } from '@/resource';
 import { getPositionFromTag } from './TileHelper';
 import { HEIGHT, WIDTH } from '../configs/field';
 import { MIN_CHAIN } from '../configs/superTiles';
+import { BOMB_RADIUS } from '../configs/booster';
 
 export function selectAction(length, tag) {
     if (length >= MIN_CHAIN.ALL) {
@@ -21,7 +22,7 @@ export function selectAction(length, tag) {
 
 // Проходим по кругу по сторонам ромба и вносим его координаты
 export function createBomb(tag) {
-    const R = 4;
+    const R = BOMB_RADIUS;
     const { x, y } = getPositionFromTag(tag);
     const tiles = [];
     for (let i = 0; i < R; i += 1) {
