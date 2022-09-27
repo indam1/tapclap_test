@@ -5,8 +5,8 @@
   "author": "Андрей Усанов <andrei0usanov@gmail.com>",
   "license": "MIT",
   "scripts": {
-    "dev": "webpack --mode=development --config webpack.dev.js && cocos run -p web",
-    "lint": "eslint --fix --ext .js src"
+    "deploy": "webpack --mode=development --config webpack.dev.js && cocos run -p web",
+    "lint": "eslint --fix --ext .js src",
   },
   "dependencies": {
     "@babel/polyfill": "*"
@@ -24,6 +24,7 @@
     "eslint-webpack-plugin": "^3.2.0",
     "file-loader": "*",
     "filemanager-webpack-plugin": "*",
+    "gh-pages": "^4.0.0",
     "terser-webpack-plugin": "*",
     "webpack": "*",
     "webpack-bundle-analyzer": "*",
