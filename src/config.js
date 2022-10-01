@@ -2,9 +2,7 @@ import GameScene from '@/app';
 import { gResources } from '@/resource';
 
 export default () => {
-    const {
-        sys, view, LoaderScene, director, ResolutionPolicy,
-    } = cc;
+    const { sys, view, LoaderScene, director, ResolutionPolicy } = cc;
     if (!sys.isNative && document.getElementById('cocosLoading')) {
         document.body.removeChild(document.getElementById('cocosLoading'));
     }

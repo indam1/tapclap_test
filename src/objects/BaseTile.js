@@ -2,13 +2,9 @@ import { commonScale } from '../configs/ui';
 import { isInRect } from '../helpers/PositionHelper';
 import { LeeAlgorithm } from '../helpers/AlgorithmHelper';
 import { selectAction, selectTilesBySuper } from '../helpers/SuperTileHelper';
-import {
-    getPositionFromTag, selectColor, xTilePosition, yTilePosition,
-} from '../helpers/TileHelper';
+import { getPositionFromTag, selectColor, xTilePosition, yTilePosition } from '../helpers/TileHelper';
 
-const {
-    Sprite, eventManager, winSize, FadeIn, EventListener,
-} = cc;
+const { Sprite, eventManager, winSize, FadeIn, EventListener } = cc;
 
 export default class BaseTile {
     constructor(gameLayer, x, y, color = null) {
@@ -78,10 +74,13 @@ export default class BaseTile {
                     return parent.gameLayer.doMove(tilesBySuper);
                 }
 
-                const tilesToDelete = LeeAlgorithm({
-                    tag: parent.tag,
-                    colorImg: parent.color,
-                }, parent.gameLayer.instance);
+                const tilesToDelete = LeeAlgorithm(
+                    {
+                        tag: parent.tag,
+                        colorImg: parent.color,
+                    },
+                    parent.gameLayer.instance,
+                );
                 if (!tilesToDelete) {
                     return false;
                 }

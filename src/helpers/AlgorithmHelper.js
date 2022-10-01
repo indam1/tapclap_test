@@ -15,10 +15,8 @@ export function LeeAlgorithm(startPoint, gameLayerInstance) {
             const { x, y } = getPositionFromTag(currentItem);
             [`${x + 1}${y}`, `${x - 1}${y}`, `${x}${y + 1}`, `${x}${y - 1}`].forEach((tag) => {
                 const tile = gameLayerInstance.getChildByTag(tag);
-                const canAdd = tile
-                    && !marked.includes(tag)
-                    && !current.includes(tag)
-                    && startPoint.colorImg === tile.texture.url;
+                const canAdd =
+                    tile && !marked.includes(tag) && !current.includes(tag) && startPoint.colorImg === tile.texture.url;
                 if (canAdd) {
                     current.push(tag);
                 }

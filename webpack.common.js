@@ -10,6 +10,7 @@ module.exports = {
         main: ['@babel/polyfill/noConflict', './src/main.js'],
     },
     output: {
+        globalObject: 'this',
         path: path.resolve(__dirname, 'publish'),
     },
     resolve: {
@@ -43,7 +44,7 @@ module.exports = {
             },
         ],
     },
-    target: 'web',
+    target: ['web', 'es5'],
     optimization: {
         splitChunks: {
             cacheGroups: {

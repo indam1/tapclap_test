@@ -8,13 +8,9 @@ import { LeeAlgorithm } from '../helpers/AlgorithmHelper';
 import { MIXES, WIN_POINTS } from '../configs/rules';
 import BaseTile from '../objects/BaseTile';
 import { createBomb } from '../helpers/SuperTileHelper';
-import {
-    getPositionFromTag, tagsArrayToList, xTilePosition, yTilePosition,
-} from '../helpers/TileHelper';
+import { getPositionFromTag, tagsArrayToList, xTilePosition, yTilePosition } from '../helpers/TileHelper';
 
-const {
-    Sprite, winSize, director, FadeOut,
-} = cc;
+const { Sprite, winSize, director, FadeOut } = cc;
 
 export default class GameLayer extends BaseLayer {
     locked = false;

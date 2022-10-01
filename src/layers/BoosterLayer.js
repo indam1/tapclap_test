@@ -4,9 +4,7 @@ import { INIT_BOOSTERS } from '../configs/booster';
 import { commonScale, UI } from '../configs/ui';
 import { isInRect } from '../helpers/PositionHelper';
 
-const {
-    Sprite, LabelTTF, eventManager, EventListener,
-} = cc;
+const { Sprite, LabelTTF, eventManager, EventListener } = cc;
 export default class BoosterLayer extends BaseLayer {
     constructor(scene, gameState) {
         super(scene, gameState);

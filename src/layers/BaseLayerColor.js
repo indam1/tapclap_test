@@ -1,6 +1,4 @@
-const {
-    LayerColor, color, winSize,
-} = cc;
+const { LayerColor, color, winSize } = cc;
 
 export default class BaseLayerColor {
     constructor(scene, layerColor) {

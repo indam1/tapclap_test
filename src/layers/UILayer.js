@@ -24,13 +24,22 @@ export default class UILayer extends BaseLayer {
         this.instance.addChild(panelScore);
         [
             {
-                string: INIT_MOVES, name: 'moves', fontSize: 256, offset: 170,
+                string: INIT_MOVES,
+                name: 'moves',
+                fontSize: 256,
+                offset: 170,
             },
             {
-                string: 'очки:', name: 'pointsLabel', fontSize: 82, offset: 670,
+                string: 'очки:',
+                name: 'pointsLabel',
+                fontSize: 82,
+                offset: 670,
             },
             {
-                string: INIT_SCORE, name: 'points', fontSize: 164, offset: 740,
+                string: INIT_SCORE,
+                name: 'points',
+                fontSize: 164,
+                offset: 740,
             },
         ].forEach((textData) => {
             this.addText(textData.string, textData.name, textData.fontSize, {

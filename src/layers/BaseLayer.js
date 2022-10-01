@@ -1,6 +1,4 @@
-const {
-    Layer,
-} = cc;
+const { Layer } = cc;
 
 export default class BaseLayer {
     constructor(scene, gameState) {
