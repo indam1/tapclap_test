@@ -25,3 +25,5 @@
 
 Проход игры - https://disk.yandex.ru/i/FATiTdLfLyIcIA
 
+Запуск игры - https://indam1.github.io/tapclap_test/publish/index.html
+
